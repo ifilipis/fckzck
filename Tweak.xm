@@ -1,7 +1,4 @@
 #include <substrate.h>
-//#import "InspectiveC/InspectiveC.h"
-#include "InspCWrapper.m"
-//#import <Foundation/Foundation.h>
 
 @class GCDAsyncSocket;
 @class NSXMLElement;
