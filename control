@@ -1,0 +1,9 @@
+Package: com.ifilipis.fckzck
+Name: FckZck
+Depends: mobilesubstrate
+Version: 1.0
+Architecture: iphoneos-arm
+Description: A tweak that kills forced updates from WhatsApp completely
+Maintainer: ifilipis
+Author: ifilipis
+Section: Tweaks
