@@ -4,6 +4,9 @@
 @class NSXMLElement;
 
 static NSDate * (*_orig_WAAppExpirationDate)();
+
+static NSDate * (*_orig_WADeprecatedPlatformCutOffDate)();
+
 static NSDate * (*_orig_WABuildDate)();
 static NSString * (*_orig_WABuildVersion)(void *, void *);
 static NSString * (*_orig_WABuildHash)();
@@ -15,6 +18,15 @@ static NSDate *_new_WAAppExpirationDate() {
     // Modify the date or do whatever you want here
     return [NSDate dateWithTimeIntervalSinceNow:31536000];
 }
+
+static NSDate *_new_WADeprecatedPlatformCutOffDate() {
+    NSLog(@"_new_WADeprecatedPlatformCutOffDate called");
+    NSDate *originalDate = _orig_WADeprecatedPlatformCutOffDate();
+    NSLog(@"Original expiration date: %@", originalDate);
+    // Modify the date or do whatever you want here
+    return [NSDate dateWithTimeIntervalSinceNow:31536000];
+}
+
 
 static NSDate *_new_WABuildDate() {
     NSLog(@"_new_WABuildDate called");
@@ -29,7 +41,7 @@ static NSString *_new_WABuildVersion(void *arg1, void *arg2) {
     NSString *originalVersion = _orig_WABuildVersion(arg1, arg2);
     NSLog(@"Original build version: %@", originalVersion);
     // Modify the version or do whatever you want here
-    return @"2.23.21.0";
+    return @"2.25.14.7";
 }
 
 static NSString *_new_WABuildHash() {
@@ -37,7 +49,7 @@ static NSString *_new_WABuildHash() {
     NSString *originalVersion = _orig_WABuildHash();
     NSLog(@"Original build hash: %@", originalVersion);
     // Modify the version or do whatever you want here
-    return @"442cdfcc3ea7cc1ec566bcc948196e85";
+    return @"30168ac5ccce84897eb26120ea54d4df";
 }
 
 %ctor {
@@ -45,6 +57,9 @@ static NSString *_new_WABuildHash() {
     NSString *frameworkPath = [bundlePath stringByAppendingPathComponent:@"Frameworks/SharedModules.framework/SharedModules"];
     MSImageRef image = MSGetImageByName([frameworkPath UTF8String]);
     
+    /* %init(WAIsPlatformDeprecated =
+         MSFindSymbol(NULL, "WAIsPlatformDeprecated")); Somebody please fix this */
+
     if (image) {
         void * _WAAppExpirationDate = MSFindSymbol(image, "_WAAppExpirationDate");
         if (_WAAppExpirationDate) {
@@ -93,10 +108,35 @@ static NSString *_new_WABuildHash() {
         } else {
             NSLog(@"Failed to find _WABuildHash");
         }
+
+        void * _WADeprecatedPlatformCutOffDate = MSFindSymbol(image, "_WADeprecatedPlatformCutOffDate");
+        if (_WADeprecatedPlatformCutOffDate) {
+            // Cast the void pointer to a function pointer and call it
+            NSDate * (*func)() = (NSDate *(*)())_WADeprecatedPlatformCutOffDate;
+            NSDate *result = func();
+            NSLog(@"Function result: %@", result);
+
+            MSHookFunction(_WADeprecatedPlatformCutOffDate, (void *)&_new_WADeprecatedPlatformCutOffDate, (void **)&_orig_WADeprecatedPlatformCutOffDate);
+        } else {
+            NSLog(@"Failed to find _WADeprecatedPlatformCutOffDate");
+        }
+
     } else {
         NSLog(@"Failed to load image at path: %@", frameworkPath);
     }
 }
+
+/* Somebody please fix this
+%hookf(BOOL, WAIsPlatformDeprecated, void) {
+    NSLog(@"[logos] WAIsPlatformDeprecated called");
+    // call the original implementation
+    bool orig = %orig();
+    NSLog(@"[logos] original returned: %d", orig);
+    // override it
+    bool override = false;
+    NSLog(@"[logos] overriding return to: %d", override);
+    return override;
+} */
 
 %hook WALogWriter
 
@@ -127,6 +167,15 @@ static NSString *_new_WABuildHash() {
 }
 
 %end
+
+%hook WARootViewController
+
+-(bool)isBuildExpired {
+    return false;
+}
+
+%end
+
 /*
 WACreateUserAgent
 WASubmitMessageSendEvent
